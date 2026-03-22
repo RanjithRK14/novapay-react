@@ -20,7 +20,7 @@ const api = {
       body: body ? JSON.stringify(body) : undefined,
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.message || data || `Error ${res.status}`);
+    if (!res.ok) throw new Error(typeof data === "string" ? data : (data.message || data.error || "User not found" || `Error ${res.status}`));
     return data;
   },
 
@@ -41,6 +41,8 @@ const api = {
     if (!userId) throw new Error("No userId in token");
     return api.request("GET", `/api/users/${userId}`, null, token);
   },
+  // Fetch any user by ID (for resolving names in transactions)
+  getUserById: (userId, token) => api.request("GET", `/api/users/${userId}`, null, token).catch(() => null),
 
   // ── Wallet — real endpoint: GET /api/v1/wallets/{userId} ────────
   getWallet: (token) => {
@@ -316,6 +318,20 @@ function Logo({ sz = 36, txt = true }) {
   );
 }
 
+// Landing page logo — matches the uploaded brand image exactly
+// Dark rounded pill background, hexagon icon with N, "Nova" white + "Pay" purple
+// function LandingLogo({ sz = 40 }) {
+//   // Render the actual brand PNG — height scales with sz, width auto
+//   const h = Math.round(sz * 1.375); // logo is 161×55px (ratio ~2.93:1), height = sz*1.375 gives good size
+//   return (
+//     <img
+//       src="data:image/png;base64,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"
+//       alt="NovaPay"
+//       style={ height: `${h}px`, width: "auto", display: "block", imageRendering: "auto" }
+//     />
+//   );
+// }
+
 const ToastCtx = createContext(null);
 function useToast() { return useContext(ToastCtx); }
 function ToastProvider({ children }) {
@@ -338,8 +354,8 @@ function ToastProvider({ children }) {
 function Modal({ open, onClose, title, children }) {
   if (!open) return null;
   return (
-    <div onClick={onClose} style={{ alignItems: "center", background: "rgba(0,0,0,0.75)", backdropFilter: "blur(10px)", bottom: 0, display: "flex", justifyContent: "center", left: 0, padding: "16px", position: "fixed", right: 0, top: 0, zIndex: 1000 }}>
-      <div onClick={e => e.stopPropagation()} className="ai" style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "20px", maxWidth: 480, padding: "24px 20px", width: "100%" }}>
+    <div onClick={onClose} style={{ alignItems: "center", background: "rgba(0,0,0,0.75)", backdropFilter: "blur(10px)", bottom: 0, display: "flex", justifyContent: "center", left: 0, padding: "16px", position: "fixed", right: 0, top: 0, zIndex: 8000, transform: "none" }}>
+      <div onClick={e => e.stopPropagation()} className="ai" style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "20px", maxWidth: 480, padding: "24px 20px", width: "100%", transform: "none" }}>
         <div style={{ alignItems: "center", display: "flex", justifyContent: "space-between", marginBottom: "20px" }}>
           <h3 style={{ fontSize: "16px", fontWeight: 700 }}>{title}</h3>
           <button onClick={onClose} style={{ alignItems: "center", background: "rgba(255,255,255,0.05)", border: "1px solid var(--border)", borderRadius: "8px", color: "var(--text2)", display: "flex", height: "32px", justifyContent: "center", width: "32px" }}><Ico n="x" s={15} /></button>
@@ -426,7 +442,7 @@ function Landing({ onSignIn }) {
       {/* Mobile Menu */}
       <div className={`mmenu${menuOpen ? " open" : ""}`}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "36px" }}>
-          <Logo sz={28} />
+          <Logo sz={32} />
           <button onClick={() => setMenuOpen(false)} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid var(--border)", borderRadius: "10px", color: "var(--text)", padding: "9px" }}><Ico n="x" s={20} /></button>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: "4px", flex: 1 }}>
@@ -439,7 +455,7 @@ function Landing({ onSignIn }) {
 
       {/* Nav */}
       <nav style={{ alignItems: "center", backdropFilter: scrolled ? "blur(20px)" : "none", background: scrolled ? "rgba(4,5,10,0.85)" : "transparent", borderBottom: scrolled ? "1px solid var(--border)" : "1px solid transparent", display: "flex", justifyContent: "space-between", left: 0, padding: "0 5%", position: "fixed", right: 0, top: 0, transition: "all 0.3s", zIndex: 100, height: "64px" }}>
-        <Logo sz={26} />
+        <Logo sz={30} />
         <div className="nd" style={{ display: "flex", alignItems: "center", gap: "24px" }}>
           {["Features", "FAQ"].map(item => <button key={item} className="nl" onClick={() => go(item.toLowerCase())}>{item}</button>)}
         </div>
@@ -624,7 +640,7 @@ function Landing({ onSignIn }) {
         <div style={{ maxWidth: "1160px", margin: "0 auto" }}>
           <div className="fr" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: "36px", marginBottom: "32px" }}>
             <div className="fb">
-              <Logo sz={26} />
+              <Logo sz={30} />
               <p style={{ color: "var(--text3)", fontSize: "12px", marginTop: "10px", maxWidth: "230px", lineHeight: 1.7 }}>Next-generation digital payments powered by Spring Boot microservices.</p>
             </div>
             {[{ title: "Product", links: ["Features", "Security", "API Docs"] }, { title: "Company", links: ["About", "Blog", "Careers"] }, { title: "Legal", links: ["Privacy", "Terms", "Compliance"] }].map((col, i) => (
@@ -666,12 +682,16 @@ function Auth({ onLogin, onBack }) {
         let res;
         try { res = await api.login(form.email, form.password); }
         catch (e) { setErr(e.message || "Login failed. Check your credentials."); return; }
-        // Parse real JWT to extract user info
+        // Fetch real user profile from API for accurate name/email
         const claims = parseJwt(res.token);
+        let userProfile = null;
+        try {
+          userProfile = await api.getUser(res.token);
+        } catch (_) {}
         const user = {
-          id: claims?.userId || 1,
-          name: claims?.sub || form.email.split("@")[0],
-          email: form.email,
+          id: userProfile?.id || claims?.userId || 1,
+          name: userProfile?.name || claims?.name || form.email.split("@")[0],
+          email: userProfile?.email || form.email,
           role: claims?.role || "ROLE_USER",
         };
         onLogin(res.token, user);
@@ -684,10 +704,12 @@ function Auth({ onLogin, onBack }) {
         try { res = await api.login(form.email, form.password); }
         catch (e) { setErr("Registered! Please sign in."); setMode("login"); return; }
         const claims = parseJwt(res.token);
+        let userProfile = null;
+        try { userProfile = await api.getUser(res.token); } catch (_) {}
         const user = {
-          id: claims?.userId || 1,
-          name: form.name,
-          email: form.email,
+          id: userProfile?.id || claims?.userId || 1,
+          name: userProfile?.name || form.name,
+          email: userProfile?.email || form.email,
           role: claims?.role || "ROLE_USER",
         };
         onLogin(res.token, user);
@@ -762,9 +784,13 @@ function Sidebar({ page, setPage, user, onLogout, nc }) {
       </nav>
       <div style={{ borderTop: "1px solid var(--border)", paddingTop: "10px" }}>
         <div style={{ alignItems: "center", display: "flex", gap: "8px", marginBottom: "8px", padding: "5px" }}>
-          <div style={{ alignItems: "center", background: "linear-gradient(135deg,var(--accent),var(--accent3))", borderRadius: "50%", color: "#fff", display: "flex", fontWeight: 800, fontSize: "11px", height: "30px", justifyContent: "center", width: "30px", flexShrink: 0 }}>{user?.name?.[0]?.toUpperCase()}</div>
+          <div style={{ alignItems: "center", background: "linear-gradient(135deg,var(--accent),var(--accent3))", borderRadius: "50%", color: "#fff", display: "flex", fontWeight: 800, fontSize: "11px", height: "30px", justifyContent: "center", width: "30px", flexShrink: 0 }}>
+            {(user?.name || user?.email || "U")[0].toUpperCase()}
+          </div>
           <div style={{ overflow: "hidden" }}>
-            <p style={{ fontSize: "12px", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user?.name}</p>
+            <p style={{ fontSize: "12px", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text)" }}>
+              {user?.name || "User"}
+            </p>
             <p style={{ color: "var(--text3)", fontSize: "10px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user?.email}</p>
           </div>
         </div>
@@ -817,11 +843,94 @@ function TxRow({ tx }) {
 }
 
 function DashPage({ wallet, transactions, rewards, setPage }) {
+  const [search, setSearch] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo]   = useState("");
+
   const spent = transactions.filter(t => t.type === "DEBIT" && t.status === "SUCCESS").reduce((s, t) => s + t.amount, 0);
-  const recv = transactions.filter(t => t.type === "CREDIT").reduce((s, t) => s + t.amount, 0);
+  const recv  = transactions.filter(t => t.type === "CREDIT").reduce((s, t) => s + t.amount, 0);
+
+  const hasFilter = search.trim() || dateFrom || dateTo;
+
+  const filtered = transactions.filter(tx => {
+    const q = search.trim().toLowerCase();
+    const matchSearch = !q || (
+      (tx.description || "").toLowerCase().includes(q) ||
+      String(tx.amount).includes(q) ||
+      (tx.status || "").toLowerCase().includes(q)
+    );
+    const txDate = tx.timestamp ? new Date(tx.timestamp) : null;
+    const matchFrom = !dateFrom || (txDate && txDate >= new Date(dateFrom));
+    const matchTo   = !dateTo   || (txDate && txDate <= new Date(dateTo + "T23:59:59"));
+    return matchSearch && matchFrom && matchTo;
+  });
+
+  const clearFilters = () => { setSearch(""); setDateFrom(""); setDateTo(""); };
+
+  const inputBase = {
+    background: "rgba(255,255,255,0.04)", border: "1px solid var(--border)",
+    borderRadius: "10px", color: "var(--text)", fontFamily: "'Outfit',sans-serif",
+    fontSize: "13px", outline: "none", padding: "9px 13px", transition: "border-color 0.2s",
+  };
+
   return (
     <div className="ai" style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
       <div><h1 style={{ fontSize: "20px", fontWeight: 800 }}>Dashboard</h1><p style={{ color: "var(--text3)", fontSize: "12px", marginTop: "2px" }}>Welcome back!</p></div>
+
+      {/* ── Filter bar — single horizontal row ── */}
+      <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "14px", padding: "12px 16px", display: "flex", alignItems: "center", gap: "10px", overflow: "hidden" }}>
+        {/* Search — grows to fill available space */}
+        <div style={{ position: "relative", flex: 1, minWidth: 0 }}>
+          <span style={{ color: "var(--text3)", left: "11px", position: "absolute", top: "50%", transform: "translateY(-50%)", pointerEvents: "none", display: "flex" }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </span>
+          <input
+            placeholder="Search by name, amount, or status…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{ ...inputBase, paddingLeft: "32px", width: "100%", boxSizing: "border-box" }}
+            onFocus={e => e.target.style.borderColor = "var(--accent)"}
+            onBlur={e => e.target.style.borderColor = "var(--border)"}
+          />
+        </div>
+        {/* Divider */}
+        <div style={{ width: "1px", height: "28px", background: "var(--border)", flexShrink: 0 }} />
+        {/* Date range — fixed width, no wrap */}
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
+          <span style={{ color: "var(--text3)", fontSize: "12px", fontWeight: 600, whiteSpace: "nowrap" }}>From</span>
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={e => setDateFrom(e.target.value)}
+            style={{ ...inputBase, padding: "8px 10px", width: "140px", colorScheme: "dark", boxSizing: "border-box" }}
+            onFocus={e => e.target.style.borderColor = "var(--accent)"}
+            onBlur={e => e.target.style.borderColor = "var(--border)"}
+          />
+          <span style={{ color: "var(--text3)", fontSize: "12px" }}>–</span>
+          <input
+            type="date"
+            value={dateTo}
+            onChange={e => setDateTo(e.target.value)}
+            style={{ ...inputBase, padding: "8px 10px", width: "140px", colorScheme: "dark", boxSizing: "border-box" }}
+            onFocus={e => e.target.style.borderColor = "var(--accent)"}
+            onBlur={e => e.target.style.borderColor = "var(--border)"}
+          />
+        </div>
+        {/* Clear button — only when active */}
+        {hasFilter && (
+          <>
+            <div style={{ width: "1px", height: "28px", background: "var(--border)", flexShrink: 0 }} />
+            <button
+              onClick={clearFilters}
+              style={{ background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.2)", borderRadius: "9px", color: "var(--red)", cursor: "pointer", fontSize: "12px", fontWeight: 600, padding: "8px 13px", whiteSpace: "nowrap", flexShrink: 0, transition: "background 0.15s" }}
+              onMouseEnter={e => e.currentTarget.style.background = "rgba(248,113,113,0.16)"}
+              onMouseLeave={e => e.currentTarget.style.background = "rgba(248,113,113,0.08)"}
+            >✕ Clear</button>
+          </>
+        )}
+      </div>
+
+      {/* ── Balance card ── */}
       <div style={{ background: "linear-gradient(135deg,rgba(108,99,255,0.12),rgba(56,189,248,0.06))", border: "1px solid rgba(108,99,255,0.18)", borderRadius: "16px", padding: "22px", position: "relative", overflow: "hidden" }}>
         <div style={{ background: "radial-gradient(ellipse 280px 180px at 80% 50%,rgba(108,99,255,0.1),transparent)", inset: 0, position: "absolute" }} />
         <div style={{ position: "relative" }}>
@@ -836,11 +945,13 @@ function DashPage({ wallet, transactions, rewards, setPage }) {
           </div>
         </div>
       </div>
+
+      {/* ── Stats ── */}
       <div className="ds" style={{ display: "grid", gap: "10px", gridTemplateColumns: "repeat(3,1fr)" }}>
         {[
-          { l: "Money Sent", v: fmt.cur(spent), i: "up", c: "var(--accent)" },
-          { l: "Money Received", v: fmt.cur(recv), i: "dn", c: "var(--green)" },
-          { l: "Reward Points", v: rewards.totalPoints.toLocaleString(), i: "star", c: "var(--gold)", s: rewards.tier },
+          { l: "Money Sent",     v: fmt.cur(spent), i: "up",   c: "var(--accent)" },
+          { l: "Money Received", v: fmt.cur(recv),  i: "dn",   c: "var(--green)"  },
+          { l: "Reward Points",  v: rewards.totalPoints.toLocaleString(), i: "star", c: "var(--gold)", s: rewards.tier },
         ].map((stat, i) => (
           <div key={i} className="card" style={{ padding: "16px" }}>
             <div style={{ alignItems: "flex-start", display: "flex", justifyContent: "space-between" }}>
@@ -854,36 +965,147 @@ function DashPage({ wallet, transactions, rewards, setPage }) {
           </div>
         ))}
       </div>
+
+      {/* ── Charts ── */}
+      {transactions.length > 0 && (() => {
+        // ── Spending by Category: bucket by amount size ──────────────
+        const debitTxs = transactions.filter(t => t.type === "DEBIT" && t.status !== "FAILED");
+        const catMap = {};
+        debitTxs.forEach(tx => {
+          const cat = tx.amount >= 5000 ? "Large Transfer"
+                    : tx.amount >= 1000 ? "Standard"
+                    : tx.amount >= 200  ? "Regular"
+                    : "Small Payment";
+          catMap[cat] = (catMap[cat] || 0) + tx.amount;
+        });
+        const catColors = { "Large Transfer": "#6c63ff", "Standard": "#38bdf8", "Regular": "#34d399", "Small Payment": "#f5c842" };
+        const cats = Object.entries(catMap).sort((a,b) => b[1]-a[1]);
+        const totalDebit = cats.reduce((s,[,v]) => s+v, 0) || 1;
+
+        // ── Monthly Trends: last 6 months ────────────────────────────
+        const now = new Date();
+        const months = Array.from({ length: 6 }, (_, i) => {
+          const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+          return { label: d.toLocaleString("en-IN", { month: "short" }), year: d.getFullYear(), month: d.getMonth() };
+        });
+        const monthData = months.map(m => {
+          const inMonth = tx => {
+            const d = tx.timestamp ? new Date(tx.timestamp) : null;
+            return d && d.getFullYear() === m.year && d.getMonth() === m.month;
+          };
+          const s = transactions.filter(tx => tx.type === "DEBIT"  && tx.status !== "FAILED" && inMonth(tx)).reduce((a,t)=>a+t.amount,0);
+          const r = transactions.filter(tx => tx.type === "CREDIT" && inMonth(tx)).reduce((a,t)=>a+t.amount,0);
+          return { ...m, sent: s, recv: r };
+        });
+        const maxVal = Math.max(...monthData.flatMap(m => [m.sent, m.recv]), 1);
+        const BAR_W = 18, BAR_GAP = 6, GROUP_GAP = 28;
+        const chartW = months.length * (BAR_W * 2 + BAR_GAP + GROUP_GAP);
+        const chartH = 120;
+
+        return (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }} className="hg">
+
+            {/* Spending by Category */}
+            <div className="card" style={{ padding: "18px" }}>
+              <h3 style={{ fontSize: "14px", fontWeight: 700, marginBottom: "14px" }}>Spending by Category</h3>
+              {cats.length === 0
+                ? <p style={{ color: "var(--text3)", fontSize: "13px" }}>No spending data yet.</p>
+                : <>
+                    {/* Stacked bar */}
+                    <div style={{ display: "flex", height: "10px", borderRadius: "100px", overflow: "hidden", marginBottom: "16px", gap: "2px" }}>
+                      {cats.map(([cat, val]) => (
+                        <div key={cat} style={{ background: catColors[cat] || "#6c63ff", width: `${(val/totalDebit)*100}%`, minWidth: "3px", borderRadius: "100px", transition: "width 0.6s ease" }} />
+                      ))}
+                    </div>
+                    {/* Legend rows */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                      {cats.map(([cat, val]) => (
+                        <div key={cat} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            <div style={{ width: "10px", height: "10px", borderRadius: "50%", background: catColors[cat] || "#6c63ff", flexShrink: 0 }} />
+                            <span style={{ fontSize: "13px", color: "var(--text2)" }}>{cat}</span>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            <span style={{ fontSize: "11px", color: "var(--text3)" }}>{Math.round(val/totalDebit*100)}%</span>
+                            <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--text)" }}>{fmt.cur(val)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+              }
+            </div>
+
+            {/* Monthly Trends */}
+            <div className="card" style={{ padding: "18px" }}>
+              <h3 style={{ fontSize: "14px", fontWeight: 700, marginBottom: "14px" }}>Monthly Trends</h3>
+              <div style={{ overflowX: "auto" }}>
+                <svg width="100%" viewBox={`0 0 ${chartW + 20} ${chartH + 36}`} style={{ minWidth: "240px", display: "block" }}>
+                  {/* Grid lines */}
+                  {[0,0.25,0.5,0.75,1].map((r, i) => (
+                    <line key={i} x1="0" y1={chartH - r*chartH} x2={chartW+20} y2={chartH - r*chartH}
+                      stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
+                  ))}
+                  {/* Bars */}
+                  {monthData.map((m, i) => {
+                    const x = i * (BAR_W * 2 + BAR_GAP + GROUP_GAP) + GROUP_GAP / 2;
+                    const sentH  = Math.max((m.sent / maxVal) * chartH, m.sent  > 0 ? 3 : 0);
+                    const recvH  = Math.max((m.recv / maxVal) * chartH, m.recv  > 0 ? 3 : 0);
+                    return (
+                      <g key={i}>
+                        {/* Sent bar */}
+                        <rect x={x} y={chartH - sentH} width={BAR_W} height={sentH}
+                          rx="4" fill="rgba(108,99,255,0.85)" />
+                        {/* Recv bar */}
+                        <rect x={x + BAR_W + BAR_GAP} y={chartH - recvH} width={BAR_W} height={recvH}
+                          rx="4" fill="rgba(52,211,153,0.85)" />
+                        {/* Month label */}
+                        <text x={x + BAR_W + BAR_GAP/2} y={chartH + 16} textAnchor="middle"
+                          fill="rgba(255,255,255,0.35)" fontSize="11" fontFamily="Outfit,sans-serif">{m.label}</text>
+                      </g>
+                    );
+                  })}
+                </svg>
+              </div>
+              {/* Legend */}
+              <div style={{ display: "flex", gap: "18px", marginTop: "8px" }}>
+                {[["Sent", "rgba(108,99,255,0.85)"], ["Received", "rgba(52,211,153,0.85)"]].map(([label, color]) => (
+                  <div key={label} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <div style={{ width: "10px", height: "10px", borderRadius: "3px", background: color }} />
+                    <span style={{ fontSize: "12px", color: "var(--text3)" }}>{label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+          </div>
+        );
+      })()}
+
+      {/* ── Recent Activity ── */}
       <div className="card" style={{ padding: "18px" }}>
         <div style={{ alignItems: "center", display: "flex", justifyContent: "space-between", marginBottom: "10px" }}>
-          <h3 style={{ fontSize: "14px", fontWeight: 700 }}>Recent Activity</h3>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <h3 style={{ fontSize: "14px", fontWeight: 700 }}>Recent Activity</h3>
+            {hasFilter && (
+              <span style={{ background: "rgba(108,99,255,0.1)", border: "1px solid rgba(108,99,255,0.2)", borderRadius: "100px", color: "var(--accent)", fontSize: "11px", fontWeight: 700, padding: "2px 9px" }}>
+                {filtered.length} result{filtered.length !== 1 ? "s" : ""}
+              </span>
+            )}
+          </div>
           <button onClick={() => setPage("wallet")} style={{ background: "none", border: "none", color: "var(--accent)", fontSize: "12px" }}>View all →</button>
         </div>
-        {transactions.slice(0, 5).map(tx => <TxRow key={tx.id} tx={tx} />)}
+        {filtered.length === 0
+          ? <div style={{ color: "var(--text3)", fontSize: "13px", padding: "20px 0", textAlign: "center" }}>No transactions match your filters.</div>
+          : (hasFilter ? filtered : transactions.slice(0, 5)).map(tx => <TxRow key={tx.id} tx={tx} />)
+        }
       </div>
     </div>
   );
 }
 
-function WalletPage({ wallet, transactions, onRefresh }) {
-  const [showD, setShowD] = useState(false);
-  const [showW, setShowW] = useState(false);
-  const [amt, setAmt] = useState(""), [loading, setLoading] = useState(false), [filter, setFilter] = useState("ALL"), [copied, setCopied] = useState(false);
-  const toast = useToast(); const { token } = useAuth();
-
-  const deposit = async () => {
-    if (!amt || +amt <= 0) { toast("Enter a valid amount", "error"); return; }
-    setLoading(true); await api.addFunds(+amt, token).catch(() => null);
-    toast(`Rs.${(+amt).toLocaleString()} added!`, "success");
-    setShowD(false); setAmt(""); onRefresh(); setLoading(false);
-  };
-  const withdraw = async () => {
-    if (!amt || +amt <= 0) { toast("Enter a valid amount", "error"); return; }
-    if (+amt > wallet.balance) { toast("Insufficient balance", "error"); return; }
-    setLoading(true); await api.withdrawFunds(+amt, token).catch(() => null);
-    toast(`Rs.${(+amt).toLocaleString()} withdrawn!`, "success");
-    setShowW(false); setAmt(""); onRefresh(); setLoading(false);
-  };
+function WalletPage({ wallet, transactions, onRefresh, onAddFunds, onWithdraw }) {
+  const [filter, setFilter] = useState("ALL"), [copied, setCopied] = useState(false);
 
   const filtered = filter === "ALL" ? transactions : transactions.filter(t => t.type === filter);
   return (
@@ -902,8 +1124,8 @@ function WalletPage({ wallet, transactions, onRefresh }) {
             </div>
           </div>
           <div className="wa" style={{ display: "flex", gap: "10px" }}>
-            <button className="btn-p" onClick={() => { setShowD(true); setAmt(""); }} style={{ alignItems: "center", display: "flex", gap: "6px", fontSize: "13px" }}><Ico n="dl" s={13} c="#fff" /> Add Funds</button>
-            <button className="btn-g" onClick={() => { setShowW(true); setAmt(""); }} style={{ alignItems: "center", display: "flex", gap: "6px", fontSize: "13px" }}><Ico n="ul" s={13} /> Withdraw</button>
+            <button className="btn-p" onClick={onAddFunds} style={{ alignItems: "center", display: "flex", gap: "6px", fontSize: "13px" }}><Ico n="dl" s={13} c="#fff" /> Add Funds</button>
+            <button className="btn-g" onClick={onWithdraw} style={{ alignItems: "center", display: "flex", gap: "6px", fontSize: "13px" }}><Ico n="ul" s={13} /> Withdraw</button>
           </div>
         </div>
       </div>
@@ -920,32 +1142,102 @@ function WalletPage({ wallet, transactions, onRefresh }) {
         </div>
         {filtered.map(tx => <TxRow key={tx.id} tx={tx} />)}
       </div>
-      <Modal open={showD} onClose={() => setShowD(false)} title="Add Funds">
-        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-          <div><label className="lbl">Amount (INR)</label><input type="number" placeholder="Enter amount" value={amt} onChange={e => setAmt(e.target.value)} /></div>
-          <div style={{ display: "flex", gap: "7px", flexWrap: "wrap" }}>
-            {[500, 1000, 2000, 5000].map(q => <button key={q} onClick={() => setAmt(String(q))} style={{ background: amt == q ? "rgba(108,99,255,0.12)" : "rgba(255,255,255,0.04)", border: `1px solid ${amt == q ? "rgba(108,99,255,0.3)" : "var(--border)"}`, borderRadius: "8px", color: amt == q ? "var(--accent)" : "var(--text2)", fontSize: "13px", padding: "6px 12px" }}>Rs.{q.toLocaleString()}</button>)}
-          </div>
-          <button className="btn-p" onClick={deposit} disabled={loading} style={{ width: "100%", padding: "13px" }}>{loading ? <Spin /> : `Add ${amt ? fmt.cur(+amt) : "Funds"}`}</button>
-        </div>
-      </Modal>
-      <Modal open={showW} onClose={() => setShowW(false)} title="Withdraw Funds">
-        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-          <div style={{ background: "rgba(245,200,66,0.06)", border: "1px solid rgba(245,200,66,0.15)", borderRadius: "10px", padding: "10px 13px" }}><p style={{ color: "var(--gold)", fontSize: "13px" }}>Available: {fmt.cur(wallet.balance)}</p></div>
-          <div><label className="lbl">Amount (INR)</label><input type="number" placeholder="Enter amount" value={amt} onChange={e => setAmt(e.target.value)} /></div>
-          <button className="btn-p" onClick={withdraw} disabled={loading} style={{ width: "100%", padding: "13px" }}>{loading ? <Spin /> : `Withdraw ${amt ? fmt.cur(+amt) : ""}`}</button>
-        </div>
-      </Modal>
     </div>
   );
 }
 
-function SendPage({ wallet, onRefresh }) {
+function RewardEarnedCard({ reward, onClose }) {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setVisible(true), 80); return () => clearTimeout(t); }, []);
+  if (!reward) return null;
+  const earnedAt = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 9000,
+        background: "rgba(4,5,10,0.88)",
+        backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: "24px",
+        opacity: visible ? 1 : 0, transition: "opacity 0.3s ease",
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: "100%", maxWidth: "360px",
+          background: "var(--bg2)",
+          border: "1px solid var(--border-h)",
+          borderRadius: "24px", padding: "32px 24px 24px", textAlign: "center",
+          boxShadow: "0 0 0 1px rgba(108,99,255,0.10), 0 32px 64px rgba(0,0,0,0.7)",
+          transform: visible ? "translateY(0) scale(1)" : "translateY(36px) scale(0.92)",
+          transition: "transform 0.45s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s ease",
+          opacity: visible ? 1 : 0,
+        }}
+      >
+        <div style={{ position: "relative", width: "70px", height: "70px", margin: "0 auto 18px" }}>
+          <div style={{ position: "absolute", inset: "-8px", borderRadius: "50%", background: "radial-gradient(circle, rgba(108,99,255,0.22) 0%, transparent 72%)" }} />
+          <div style={{ width: "70px", height: "70px", borderRadius: "50%", background: "linear-gradient(135deg, rgba(108,99,255,0.16), rgba(56,189,248,0.10))", border: "1.5px solid rgba(108,99,255,0.28)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "32px" }}>🎉</div>
+        </div>
+        <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "1.4px", textTransform: "uppercase", color: "var(--accent2)", marginBottom: "6px" }}>Reward Earned</p>
+        <h2 style={{ fontSize: "20px", fontWeight: 800, color: "var(--text)", marginBottom: "16px" }}>You've got points!</h2>
+        <div style={{ display: "inline-flex", alignItems: "baseline", gap: "5px", background: "linear-gradient(135deg, rgba(108,99,255,0.13), rgba(56,189,248,0.07))", border: "1px solid rgba(108,99,255,0.22)", borderRadius: "100px", padding: "10px 32px", marginBottom: "14px" }}>
+          <span style={{ fontSize: "44px", fontWeight: 900, color: "var(--accent2)", lineHeight: 1 }}>+{reward.newPoints}</span>
+          <span style={{ fontSize: "16px", fontWeight: 700, color: "var(--text2)" }}>pts</span>
+        </div>
+        <p style={{ fontSize: "13px", color: "var(--text3)", marginBottom: "20px", lineHeight: 1.5 }}>You earned reward points for your transaction!</p>
+        <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid var(--border)", borderRadius: "12px", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+          <span style={{ fontSize: "13px", color: "var(--text2)", fontWeight: 500 }}>Transaction Reward</span>
+          <span style={{ fontSize: "13px", color: "var(--text)", fontWeight: 700 }}>{earnedAt}</span>
+        </div>
+        <div style={{ display: "flex", gap: "8px", marginBottom: "22px" }}>
+          {[
+            { label: "Total Points", value: reward.totalPoints.toLocaleString(), color: "var(--accent2)" },
+            { label: "Cashback", value: fmt.cur(Math.round(reward.newPoints * 0.10)), color: "var(--green)" },
+          ].map(({ label, value, color }) => (
+            <div key={label} style={{ flex: 1, background: "rgba(255,255,255,0.03)", border: "1px solid var(--border)", borderRadius: "10px", padding: "10px 8px" }}>
+              <p style={{ fontSize: "10px", color: "var(--text3)", marginBottom: "4px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.7px" }}>{label}</p>
+              <p style={{ fontSize: "16px", fontWeight: 800, color }}>{value}</p>
+            </div>
+          ))}
+        </div>
+        <button
+          onClick={onClose}
+          style={{ width: "100%", padding: "14px", background: "linear-gradient(135deg, var(--accent), #5b52e8)", border: "none", borderRadius: "12px", fontSize: "15px", fontWeight: 700, color: "#fff", cursor: "pointer", boxShadow: "0 4px 20px rgba(108,99,255,0.35)", transition: "transform 0.15s ease, box-shadow 0.15s ease" }}
+          onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 8px 28px rgba(108,99,255,0.45)"; }}
+          onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = "0 4px 20px rgba(108,99,255,0.35)"; }}
+        >Awesome! 🎊</button>
+      </div>
+    </div>
+  );
+}
+
+function SendPage({ wallet, onRefresh, onReward }) {
   const toast = useToast(); const { token } = useAuth();
   const [step, setStep] = useState(1), [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ receiverId: "", amount: "", note: "" }), [txRes, setTxRes] = useState(null);
   const [err, setErr] = useState("");
+  const [fetchingReward, setFetchingReward] = useState(false);
   const fld = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
+
+  const fetchRewardAfterTx = async (txId, amt) => {
+    setFetchingReward(true);
+    // 10% of sent amount = reward points, minimum 1
+    const calcPoints = Math.max(1, Math.round(amt * 0.10));
+    try {
+      const rewardList = await api.getRewards(token);
+      if (Array.isArray(rewardList) && rewardList.length > 0) {
+        const totalPoints = rewardList.reduce((s, x) => s + (x.points || 0), 0);
+        const tier = totalPoints >= 10000 ? "DIAMOND" : totalPoints >= 5000 ? "PLATINUM" : totalPoints >= 1000 ? "GOLD" : totalPoints >= 500 ? "SILVER" : "BRONZE";
+        onReward({ newPoints: calcPoints, totalPoints, tier });
+      } else {
+        onReward({ newPoints: calcPoints, totalPoints: calcPoints, tier: "BRONZE" });
+      }
+    } catch {
+      onReward({ newPoints: calcPoints, totalPoints: calcPoints, tier: "BRONZE" });
+    } finally { setFetchingReward(false); }
+  };
 
   const send = async () => {
     setErr(""); setLoading(true);
@@ -953,31 +1245,23 @@ function SendPage({ wallet, onRefresh }) {
       const res = await api.sendMoney({ receiverId: +form.receiverId, amount: +form.amount }, token);
       setTxRes(res); setStep(3); onRefresh();
       toast("Transfer successful!", "success");
+      fetchRewardAfterTx(res?.transactionId || res?.id, +form.amount);
     } catch (e) {
       setErr(e.message || "Transfer failed. Please try again.");
       setStep(1);
     } finally { setLoading(false); }
   };
   const reset = () => { setStep(1); setForm({ receiverId: "", amount: "", note: "" }); setTxRes(null); setErr(""); };
-  const contacts = [];
 
   return (
-    <div className="ai" style={{ display: "flex", flexDirection: "column", gap: "18px", maxWidth: "500px" }}>
-      <div><h1 style={{ fontSize: "20px", fontWeight: 800 }}>Send Money</h1><p style={{ color: "var(--text3)", fontSize: "12px", marginTop: "2px" }}>Transfer funds instantly to anyone</p></div>
-      {step === 1 && <>
-        <div className="card" style={{ padding: "16px" }}>
-          <h3 style={{ fontSize: "13px", fontWeight: 600, marginBottom: "10px" }}>Recent Contacts</h3>
-          <div className="cr" style={{ display: "flex", gap: "10px" }}>
-            {contacts.map(c => (
-              <button key={c.email} onClick={() => setForm(p => ({ ...p, toEmail: c.email }))} style={{ alignItems: "center", background: form.toEmail === c.email ? "rgba(108,99,255,0.1)" : "rgba(255,255,255,0.03)", border: `1px solid ${form.toEmail === c.email ? "rgba(108,99,255,0.3)" : "var(--border)"}`, borderRadius: "10px", display: "flex", flexDirection: "column", gap: "4px", padding: "10px 14px" }}>
-                <div style={{ alignItems: "center", background: "linear-gradient(135deg,var(--accent),var(--accent3))", borderRadius: "50%", color: "#fff", display: "flex", fontWeight: 800, height: "30px", justifyContent: "center", width: "30px" }}>{c.name[0]}</div>
-                <span style={{ color: "var(--text)", fontSize: "10px", fontWeight: 500 }}>{c.name.split(" ")[0]}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="card" style={{ padding: "16px" }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+    <div className="ai" style={{ display: "flex", flexDirection: "column", gap: "20px", width: "100%", maxWidth: "460px", margin: "0 auto" }}>
+      <div style={{ textAlign: "center" }}>
+        <h1 style={{ fontSize: "22px", fontWeight: 800 }}>Send Money</h1>
+        <p style={{ color: "var(--text3)", fontSize: "13px", marginTop: "5px" }}>Transfer funds to other users securely</p>
+      </div>
+      {step === 1 && (
+        <div className="card" style={{ padding: "20px" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
             <div>
               <label className="lbl">Recipient User ID</label>
               <input type="number" placeholder="Enter recipient user ID (e.g. 2)" value={form.receiverId} onChange={fld("receiverId")} />
@@ -992,16 +1276,17 @@ function SendPage({ wallet, onRefresh }) {
               <p style={{ color: "var(--text3)", fontSize: "11px", marginTop: "4px" }}>Available: {fmt.cur(wallet.balance)}</p>
             </div>
             <div><label className="lbl">Note (optional)</label><input placeholder="What's this for?" value={form.note} onChange={fld("note")} /></div>
-            <button className="btn-p" onClick={() => setStep(2)} disabled={!form.receiverId || !form.amount || +form.amount <= 0} style={{ width: "100%", padding: "12px" }}>Continue</button>
+            {err && <p style={{ color: "var(--red)", fontSize: "13px", background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.2)", borderRadius: "8px", padding: "10px 14px" }}>{err}</p>}
+            <button className="btn-p" onClick={() => setStep(2)} disabled={!form.receiverId || !form.amount || +form.amount <= 0} style={{ width: "100%", padding: "13px" }}>Continue</button>
           </div>
         </div>
-      </>}
+      )}
       {step === 2 && (
-        <div className="card ai" style={{ padding: "18px" }}>
+        <div className="card ai" style={{ padding: "20px" }}>
           <h3 style={{ fontSize: "15px", fontWeight: 700, marginBottom: "14px" }}>Confirm Transfer</h3>
           <div style={{ display: "flex", flexDirection: "column" }}>
             {[["To", `User #${form.receiverId}`], ["Amount", fmt.cur(+form.amount)], ["Note", form.note || "—"], ["Balance After", fmt.cur(wallet.balance - +form.amount)]].map(([label, val], i) => (
-              <div key={i} style={{ alignItems: "center", display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid var(--border)" }}>
+              <div key={i} style={{ alignItems: "center", display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid var(--border)" }}>
                 <span style={{ color: "var(--text3)", fontSize: "13px" }}>{label}</span>
                 <span style={{ color: i === 1 ? "var(--accent)" : "var(--text)", fontWeight: i === 1 ? 800 : 500, fontSize: i === 1 ? "15px" : "13px", maxWidth: "55%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "right" }}>{val}</span>
               </div>
@@ -1009,17 +1294,22 @@ function SendPage({ wallet, onRefresh }) {
           </div>
           <div style={{ display: "flex", gap: "10px", marginTop: "18px" }}>
             <button className="btn-g" onClick={() => setStep(1)} style={{ flex: 1 }}>Back</button>
-            <button className="btn-p" onClick={send} disabled={loading} style={{ flex: 2, padding: "12px" }}>{loading ? <Spin /> : "Confirm & Send"}</button>
+            <button className="btn-p" onClick={send} disabled={loading} style={{ flex: 2, padding: "13px" }}>{loading ? <Spin /> : "Confirm & Send"}</button>
           </div>
         </div>
       )}
       {step === 3 && (
-        <div className="card ai" style={{ textAlign: "center", padding: "30px 22px" }}>
-          <div style={{ alignItems: "center", background: "rgba(52,211,153,0.1)", border: "2px solid rgba(52,211,153,0.25)", borderRadius: "50%", color: "var(--green)", display: "flex", height: "60px", justifyContent: "center", margin: "0 auto 14px", width: "60px" }}><Ico n="chk" s={26} /></div>
-          <h2 style={{ fontSize: "19px", fontWeight: 800, marginBottom: "5px" }}>Transfer Successful!</h2>
-          <p style={{ color: "var(--text3)", fontSize: "13px", marginBottom: "5px" }}>{fmt.cur(+form.amount)} sent to User #{form.receiverId}</p>
-          <code style={{ background: "rgba(255,255,255,0.05)", borderRadius: "8px", color: "var(--text3)", fontSize: "11px", padding: "3px 10px" }}>Ref: {txRes?.transactionId}</code>
-          <div style={{ display: "flex", gap: "10px", marginTop: "22px" }}>
+        <div className="card ai" style={{ textAlign: "center", padding: "36px 28px" }}>
+          <div style={{ alignItems: "center", background: "rgba(52,211,153,0.1)", border: "2px solid rgba(52,211,153,0.25)", borderRadius: "50%", color: "var(--green)", display: "flex", height: "64px", justifyContent: "center", margin: "0 auto 16px", width: "64px" }}><Ico n="chk" s={28} /></div>
+          <h2 style={{ fontSize: "20px", fontWeight: 800, marginBottom: "6px" }}>Transfer Successful!</h2>
+          <p style={{ color: "var(--text3)", fontSize: "13px", marginBottom: "10px" }}>{fmt.cur(+form.amount)} sent to User #{form.receiverId}</p>
+          <code style={{ background: "rgba(255,255,255,0.05)", borderRadius: "8px", color: "var(--text3)", fontSize: "11px", padding: "4px 12px" }}>Ref: {txRes?.transactionId}</code>
+          {fetchingReward && (
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", justifyContent: "center", color: "var(--text3)", fontSize: "12px", marginTop: "16px" }}>
+              <Spin s={13} /> Calculating reward points…
+            </div>
+          )}
+          <div style={{ display: "flex", gap: "10px", marginTop: "24px" }}>
             <button className="btn-g" onClick={reset} style={{ flex: 1 }}>New Transfer</button>
             <button className="btn-p" onClick={reset} style={{ flex: 1 }}>Done</button>
           </div>
@@ -1058,14 +1348,106 @@ function RewardsPage({ rewards, rewardHistory }) {
       </div>
       <div className="card" style={{ padding: "18px" }}>
         <h3 style={{ fontSize: "14px", fontWeight: 700, marginBottom: "10px" }}>Points History</h3>
-        {rewardHistory.map(r => (
-          <div key={r.id} style={{ alignItems: "center", borderBottom: "1px solid var(--border)", display: "flex", gap: "10px", padding: "10px 0" }}>
-            <div style={{ alignItems: "center", background: "rgba(245,200,66,0.08)", borderRadius: "9px", color: "var(--gold)", display: "flex", height: "32px", justifyContent: "center", width: "32px" }}><Ico n="star" s={13} /></div>
-            <div style={{ flex: 1, minWidth: 0 }}><p style={{ fontSize: "13px", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.reason}</p><p style={{ color: "var(--text3)", fontSize: "11px" }}>{fmt.dt(r.earnedAt)}</p></div>
-            <span style={{ color: "var(--gold)", fontWeight: 800, fontSize: "12px", flexShrink: 0 }}>+{r.points} pts</span>
-          </div>
-        ))}
+        {rewardHistory.length === 0
+          ? <p style={{ color: "var(--text3)", fontSize: "13px", padding: "10px 0" }}>No reward history yet.</p>
+          : rewardHistory.map(r => (
+            <div key={r.id} style={{ alignItems: "center", borderBottom: "1px solid var(--border)", display: "flex", gap: "10px", padding: "10px 0" }}>
+              <div style={{ alignItems: "center", background: "rgba(245,200,66,0.08)", borderRadius: "9px", color: "var(--gold)", display: "flex", height: "32px", justifyContent: "center", width: "32px" }}><Ico n="star" s={13} /></div>
+              <div style={{ flex: 1, minWidth: 0 }}><p style={{ fontSize: "13px", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.reason}</p><p style={{ color: "var(--text3)", fontSize: "11px" }}>{fmt.dt(r.earnedAt)}</p></div>
+              <span style={{ color: "var(--gold)", fontWeight: 800, fontSize: "12px", flexShrink: 0 }}>+{r.points} pts</span>
+            </div>
+          ))
+        }
       </div>
+
+      {/* ── Redeem Your Points ── */}
+      {(() => {
+        const OFFERS = [
+          { emoji: "🛍️", cat: "SHOPPING",       name: "Amazon Voucher",    desc: "₹100 Amazon Gift Card",      pts: 10000  },
+          { emoji: "☕", cat: "FOOD & BEVERAGE", name: "Starbucks Coffee",  desc: "Free Premium Coffee",        pts: 5000   },
+          { emoji: "🚗", cat: "TRAVEL",          name: "Uber Ride",         desc: "₹150 Uber Ride Credit",      pts: 7500   },
+          { emoji: "🎬", cat: "ENTERTAINMENT",   name: "Movie Tickets",     desc: "2 Cinema Tickets",           pts: 12000  },
+          { emoji: "📱", cat: "UTILITY",         name: "Mobile Recharge",   desc: "₹50 Mobile Recharge",        pts: 3000   },
+          { emoji: "📦", cat: "SHOPPING",        name: "Flipkart Voucher",  desc: "₹200 Shopping Voucher",      pts: 20000  },
+          { emoji: "🍕", cat: "FOOD & BEVERAGE", name: "Swiggy Discount",   desc: "₹75 off on Swiggy order",    pts: 6000   },
+          { emoji: "✈️", cat: "TRAVEL",          name: "Flight Cashback",   desc: "₹300 Flight Booking Credit", pts: 30000  },
+        ];
+        const catColors = {
+          "SHOPPING":       { text: "var(--accent2)", bg: "rgba(167,139,250,0.10)", border: "rgba(167,139,250,0.2)" },
+          "FOOD & BEVERAGE":{ text: "var(--green)",   bg: "rgba(52,211,153,0.10)",  border: "rgba(52,211,153,0.2)"  },
+          "TRAVEL":         { text: "var(--accent3)", bg: "rgba(56,189,248,0.10)",  border: "rgba(56,189,248,0.2)"  },
+          "ENTERTAINMENT":  { text: "var(--red)",     bg: "rgba(248,113,113,0.10)", border: "rgba(248,113,113,0.2)" },
+          "UTILITY":        { text: "var(--gold)",    bg: "rgba(245,200,66,0.10)",  border: "rgba(245,200,66,0.2)"  },
+        };
+        const userPts = rewards.totalPoints;
+        return (
+          <div>
+            {/* Header */}
+            <div style={{ alignItems: "center", display: "flex", justifyContent: "space-between", marginBottom: "14px" }}>
+              <div>
+                <h3 style={{ fontSize: "16px", fontWeight: 800 }}>Redeem Your Points</h3>
+                <p style={{ color: "var(--text3)", fontSize: "12px", marginTop: "2px" }}>Use your points to unlock exclusive rewards</p>
+              </div>
+              <div style={{ alignItems: "center", background: "rgba(108,99,255,0.1)", border: "1px solid rgba(108,99,255,0.2)", borderRadius: "100px", display: "flex", gap: "5px", padding: "5px 12px" }}>
+                <Ico n="star" s={12} c="var(--gold)" />
+                <span style={{ color: "var(--text)", fontSize: "12px", fontWeight: 700 }}>{userPts.toLocaleString()} pts available</span>
+              </div>
+            </div>
+
+            {/* Offer grid */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "12px" }}>
+              {OFFERS.map((offer, i) => {
+                const canRedeem = userPts >= offer.pts;
+                const cc = catColors[offer.cat] || catColors["UTILITY"];
+                return (
+                  <div key={i} className="card" style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "10px", transition: "border-color 0.2s, transform 0.2s", cursor: canRedeem ? "pointer" : "default" }}
+                    onMouseEnter={e => { if (canRedeem) { e.currentTarget.style.borderColor = "rgba(108,99,255,0.35)"; e.currentTarget.style.transform = "translateY(-2px)"; } }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = ""; e.currentTarget.style.transform = ""; }}
+                  >
+                    {/* Top row: emoji + category badge */}
+                    <div style={{ alignItems: "center", display: "flex", gap: "10px" }}>
+                      <div style={{ alignItems: "center", background: "rgba(255,255,255,0.05)", borderRadius: "10px", display: "flex", fontSize: "24px", height: "44px", justifyContent: "center", width: "44px", flexShrink: 0 }}>
+                        {offer.emoji}
+                      </div>
+                      <span style={{ background: cc.bg, border: `1px solid ${cc.border}`, borderRadius: "100px", color: cc.text, fontSize: "9px", fontWeight: 700, letterSpacing: "0.7px", padding: "2px 8px", textTransform: "uppercase" }}>
+                        {offer.cat}
+                      </span>
+                    </div>
+
+                    {/* Name + desc */}
+                    <div>
+                      <p style={{ fontSize: "14px", fontWeight: 700, color: "var(--text)" }}>{offer.name}</p>
+                      <p style={{ color: "var(--text3)", fontSize: "12px", marginTop: "2px" }}>{offer.desc}</p>
+                    </div>
+
+                    {/* Points + CTA */}
+                    <div style={{ alignItems: "center", display: "flex", justifyContent: "space-between", marginTop: "auto" }}>
+                      <span style={{ color: "var(--accent2)", fontSize: "14px", fontWeight: 800 }}>{offer.pts} pts</span>
+                      <button
+                        disabled={!canRedeem}
+                        onClick={() => canRedeem && alert(`🎉 Redeemed: ${offer.name}! ${offer.pts} points deducted.`)}
+                        style={{
+                          background: canRedeem ? "linear-gradient(135deg, var(--accent), #5b52e8)" : "rgba(255,255,255,0.05)",
+                          border: canRedeem ? "none" : "1px solid var(--border)",
+                          borderRadius: "8px", color: canRedeem ? "#fff" : "var(--text3)",
+                          cursor: canRedeem ? "pointer" : "not-allowed",
+                          fontSize: "11px", fontWeight: 700, padding: "6px 12px",
+                          transition: "opacity 0.15s",
+                          opacity: canRedeem ? 1 : 0.6,
+                        }}
+                        onMouseEnter={e => { if (canRedeem) e.currentTarget.style.opacity = "0.85"; }}
+                        onMouseLeave={e => { if (canRedeem) e.currentTarget.style.opacity = "1"; }}
+                      >
+                        {canRedeem ? "Redeem" : "Need More Points"}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -1159,12 +1541,23 @@ function ProfilePage({ onLogout }) {
 
 function Dashboard({ token, user, onLogout }) {
   const [page, setPage] = useState("dashboard");
+  const navigateTo = useCallback((p) => {
+    setPage(p);
+    if (p === "notifications") {
+      // Mark all unread notifications as read when tab is opened
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    }
+  }, []);
   const [wallet, setWallet] = useState({ balance: 0, availableBalance: 0, currency: "INR", walletId: "" });
   const [transactions, setTransactions] = useState([]);
   const [rewards, setRewards] = useState({ totalPoints: 0, tier: "BRONZE", cashbackEarned: 0 });
   const [rewardHistory, setRewardHistory] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [earnedReward, setEarnedReward] = useState(null);
+  const [walletModal, setWalletModal] = useState(null); // null | "add" | "withdraw"
+  const [walletAmt, setWalletAmt] = useState("");
+  const [walletLoading, setWalletLoading] = useState(false);
   const unread = notifications.filter(n => !n.read).length;
 
   const refresh = useCallback(async () => {
@@ -1182,23 +1575,40 @@ function Dashboard({ token, user, onLogout }) {
         currency: w.currency || "INR",
         walletId: w.id ? String(w.id) : ("NP-" + (w.userId || "")),
       });
-      // Normalize transactions: backend returns array of { id, senderId, receiverId, amount, timestamp, status }
-      if (Array.isArray(t)) setTransactions(t.map(tx => ({
-        id: tx.id,
-        type: tx.senderId === user?.id ? "DEBIT" : "CREDIT",
-        amount: tx.amount || 0,
-        description: tx.senderId === user?.id
-          ? `Transfer to User #${tx.receiverId}`
-          : `Received from User #${tx.senderId}`,
-        timestamp: tx.timestamp || new Date().toISOString(),
-        status: tx.status || "SUCCESS",
-      })));
+      // Normalize transactions: resolve counterpart user IDs → real names
+      if (Array.isArray(t)) {
+        // Collect all unique counterpart IDs we need to look up
+        const counterpartIds = [...new Set(t.map(tx =>
+          tx.senderId === user?.id ? tx.receiverId : tx.senderId
+        ).filter(Boolean))];
+        // Fetch all names in parallel, build id→firstName map
+        const nameMap = {};
+        await Promise.all(counterpartIds.map(async (uid) => {
+          const u = await api.getUserById(uid, token);
+          if (u?.name) nameMap[uid] = u.name.split(" ")[0]; // first name only
+        }));
+        setTransactions(t.map(tx => {
+          const isDebit = tx.senderId === user?.id;
+          const counterpartId = isDebit ? tx.receiverId : tx.senderId;
+          const name = nameMap[counterpartId] || null;
+          return {
+            id: tx.id,
+            type: isDebit ? "DEBIT" : "CREDIT",
+            amount: tx.amount || 0,
+            description: isDebit
+              ? `Transfer to ${name || `User #${tx.receiverId}`}`
+              : `Received from ${name || `User #${tx.senderId}`}`,
+            timestamp: tx.timestamp || new Date().toISOString(),
+            status: tx.status || "SUCCESS",
+          };
+        }));
+      }
       // Normalize rewards: backend returns array of { id, userId, points, sentAt, transactionId }
       // Must produce { totalPoints, tier, cashbackEarned } — NOT { points, history }
       if (Array.isArray(r)) {
         const totalPoints = r.reduce((s, x) => s + (x.points || 0), 0);
         const tier = totalPoints >= 10000 ? "DIAMOND" : totalPoints >= 5000 ? "PLATINUM" : totalPoints >= 1000 ? "GOLD" : totalPoints >= 500 ? "SILVER" : "BRONZE";
-        setRewards({ totalPoints, tier, cashbackEarned: Math.round(totalPoints / 2) });
+        setRewards({ totalPoints, tier, cashbackEarned: Math.round(totalPoints * 0.10) });
         setRewardHistory(r.map(x => ({
           id: x.id,
           points: x.points || 0,
@@ -1223,10 +1633,27 @@ function Dashboard({ token, user, onLogout }) {
 
   const markRead = (id) => { setNotifications(p => p.map(n => n.id === id ? { ...n, read: true } : n)); api.markRead(id, token).catch(() => null); };
 
+  const toast = useToast();
+  const handleDeposit = async () => {
+    if (!walletAmt || +walletAmt <= 0) { toast("Enter a valid amount", "error"); return; }
+    setWalletLoading(true);
+    await api.addFunds(+walletAmt, token).catch(() => null);
+    toast(`Rs.${(+walletAmt).toLocaleString()} added!`, "success");
+    setWalletModal(null); setWalletAmt(""); refresh(); setWalletLoading(false);
+  };
+  const handleWithdraw = async () => {
+    if (!walletAmt || +walletAmt <= 0) { toast("Enter a valid amount", "error"); return; }
+    if (+walletAmt > wallet.balance) { toast("Insufficient balance", "error"); return; }
+    setWalletLoading(true);
+    await api.withdrawFunds(+walletAmt, token).catch(() => null);
+    toast(`Rs.${(+walletAmt).toLocaleString()} withdrawn!`, "success");
+    setWalletModal(null); setWalletAmt(""); refresh(); setWalletLoading(false);
+  };
+
   const pages = {
-    dashboard: <DashPage wallet={wallet} transactions={transactions} rewards={rewards} setPage={setPage} />,
-    wallet: <WalletPage wallet={wallet} transactions={transactions} onRefresh={refresh} />,
-    send: <SendPage wallet={wallet} onRefresh={refresh} />,
+    dashboard: <DashPage wallet={wallet} transactions={transactions} rewards={rewards} setPage={navigateTo} />,
+    wallet: <WalletPage wallet={wallet} transactions={transactions} onRefresh={refresh} onAddFunds={() => { setWalletAmt(""); setWalletModal("add"); }} onWithdraw={() => { setWalletAmt(""); setWalletModal("withdraw"); }} />,
+    send: <SendPage wallet={wallet} onRefresh={refresh} onReward={setEarnedReward} />,
     rewards: <RewardsPage rewards={rewards} rewardHistory={rewardHistory} />,
     notifications: <NotifsPage notifications={notifications} onMarkRead={markRead} />,
     profile: <ProfilePage onLogout={onLogout} />,
@@ -1235,15 +1662,32 @@ function Dashboard({ token, user, onLogout }) {
   return (
     <AuthContext.Provider value={{ token, user }}>
       <div style={{ display: "flex", minHeight: "100vh" }}>
-        <Sidebar page={page} setPage={setPage} user={user} onLogout={onLogout} nc={unread} />
+        <Sidebar page={page} setPage={navigateTo} user={user} onLogout={onLogout} nc={unread} />
         <main className="dmain" style={{ flex: 1, overflow: "auto", padding: "26px 28px" }}>
           {loading
             ? <div style={{ alignItems: "center", display: "flex", justifyContent: "center", height: "60vh" }}><Spin /></div>
             : (pages[page] || pages.dashboard)
           }
         </main>
-        <BotNav page={page} setPage={setPage} nc={unread} />
+        <BotNav page={page} setPage={navigateTo} nc={unread} />
       </div>
+      {earnedReward && <RewardEarnedCard reward={earnedReward} onClose={() => { setEarnedReward(null); refresh(); }} />}
+      <Modal open={walletModal === "add"} onClose={() => setWalletModal(null)} title="Add Funds">
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+          <div><label className="lbl">Amount (INR)</label><input type="number" placeholder="Enter amount" value={walletAmt} onChange={e => setWalletAmt(e.target.value)} /></div>
+          <div style={{ display: "flex", gap: "7px", flexWrap: "wrap" }}>
+            {[500, 1000, 2000, 5000].map(q => <button key={q} onClick={() => setWalletAmt(String(q))} style={{ background: walletAmt == q ? "rgba(108,99,255,0.12)" : "rgba(255,255,255,0.04)", border: `1px solid ${walletAmt == q ? "rgba(108,99,255,0.3)" : "var(--border)"}`, borderRadius: "8px", color: walletAmt == q ? "var(--accent)" : "var(--text2)", fontSize: "13px", padding: "6px 12px" }}>Rs.{q.toLocaleString()}</button>)}
+          </div>
+          <button className="btn-p" onClick={handleDeposit} disabled={walletLoading} style={{ width: "100%", padding: "13px" }}>{walletLoading ? <Spin /> : `Add ${walletAmt ? fmt.cur(+walletAmt) : "Funds"}`}</button>
+        </div>
+      </Modal>
+      <Modal open={walletModal === "withdraw"} onClose={() => setWalletModal(null)} title="Withdraw Funds">
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+          <div style={{ background: "rgba(245,200,66,0.06)", border: "1px solid rgba(245,200,66,0.15)", borderRadius: "10px", padding: "10px 13px" }}><p style={{ color: "var(--gold)", fontSize: "13px" }}>Available: {fmt.cur(wallet.balance)}</p></div>
+          <div><label className="lbl">Amount (INR)</label><input type="number" placeholder="Enter amount" value={walletAmt} onChange={e => setWalletAmt(e.target.value)} /></div>
+          <button className="btn-p" onClick={handleWithdraw} disabled={walletLoading} style={{ width: "100%", padding: "13px" }}>{walletLoading ? <Spin /> : `Withdraw ${walletAmt ? fmt.cur(+walletAmt) : ""}`}</button>
+        </div>
+      </Modal>
     </AuthContext.Provider>
   );
 }
