@@ -411,11 +411,11 @@ function Landing({ onSignIn }) {
 
   const feats = [
     { i: "⚡", t: "Instant Transfers", d: "Send money to anyone in seconds via real-time microservices.", c: "#6c63ff", bg: "rgba(108,99,255,0.08)" },
-    { i: "🛡️", t: "Bank-Grade Security", d: "JWT auth, AES-256 encryption, rate limiting, and 2FA.", c: "#38bdf8", bg: "rgba(56,189,248,0.08)" },
+    { i: "🛡️", t: "Bank-Grade Security", d: "End-to-end encryption, multi-factor authentication and data tokenization to secure all transactions.", c: "#38bdf8", bg: "rgba(56,189,248,0.08)" },
     { i: "🌟", t: "Reward Points", d: "Earn points on every transaction. Redeem for cashback.", c: "#f5c842", bg: "rgba(245,200,66,0.08)" },
     { i: "📊", t: "Smart Analytics", d: "Visual spending insights and intelligent budget recommendations.", c: "#a78bfa", bg: "rgba(167,139,250,0.08)" },
     { i: "🔔", t: "Live Notifications", d: "Real-time alerts for every transaction and security event.", c: "#f87171", bg: "rgba(248,113,113,0.08)" },
-    { i: "⚙️", t: "API Gateway", d: "Scalable Spring Boot gateway ensuring stability under traffic.", c: "#34d399", bg: "rgba(52,211,153,0.08)" },
+    { i: "⚙️", t: "Cross-Border Settlement Engine", d: "Efficiently route and settle cross-border transactions using directrails, minimizing intermediary friction.", c: "#34d399", bg: "rgba(52,211,153,0.08)" },
   ];
   const stats = [
     { n: 2400000, s: "+", l: "Transactions", p: "" },
