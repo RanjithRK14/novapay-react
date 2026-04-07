@@ -39,7 +39,7 @@ npm run dev
 ```
 ---
 
-##🌐 Deployment
+## 🌐 Deployment
 
 The application is deployed on Netlify.
 
@@ -57,7 +57,7 @@ VITE_API_URL=http://localhost:8080
 
 ---
 
-##📂 Project Structure
+## 📂 Project Structure
 ```bash
 src/
   components/
@@ -69,6 +69,6 @@ src/
 
 ---
 
-##👨‍💻 Author
+## 👨‍💻 Author
 
 Ranjith Kumar
