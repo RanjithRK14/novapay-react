@@ -45,7 +45,7 @@ The application is deployed on Netlify.
 
 ---
 
-##🔗 Backend Integration
+## 🔗 Backend Integration
 
 Make sure backend services are running before using the frontend.
 
