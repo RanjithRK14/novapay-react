@@ -5,6 +5,11 @@ NovaPay frontend is a React-based web application that interacts with the backen
 
 ---
 
+## 🌐 Live Demo
+[https://novapay-app.netlify.app](https://novapay-app.netlify.app)
+
+---
+
 ## 🛠️ Tech Stack
 - React (Vite)
 - JavaScript (ES6+)
