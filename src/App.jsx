@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useContext, createContext, useCallback } from "react";
 
 // Vite dev proxy: /api-gw → http://localhost:8080 (eliminates CORS entirely)
-const API_BASE = "/api-gw";
+const API_BASE = import.meta.env.VITE_API_BASE || "https://novapay-api-gateway.onrender.com";
 
 // ── JWT helper: decode payload from real JWT (no library needed) ──────────────
 function parseJwt(token) {
@@ -20,7 +20,14 @@ const api = {
       body: body ? JSON.stringify(body) : undefined,
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(typeof data === "string" ? data : (data.message || data.error || "User not found" || `Error ${res.status}`));
+    if (!res.ok) {
+      const serverMsg = typeof data === "string" ? data : (data.message || data.error || "");
+      const statusMsg = res.status === 429 ? "429 Too Many Requests" :
+                        res.status === 502 ? "502 Bad Gateway" :
+                        res.status === 504 ? "504 Gateway Timeout" :
+                        res.status === 503 ? "503 Service Unavailable" : "";
+      throw new Error(serverMsg || statusMsg || `Error ${res.status}`);
+    }
     return data;
   },
 
@@ -674,49 +681,95 @@ function Auth({ onLogin, onBack }) {
   const [showPass, setShowPass] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", password: "", phone: "" });
   const [err, setErr] = useState("");
+  const [countdown, setCountdown] = useState(0); // seconds until auto-retry
+  const [retrying, setRetrying] = useState(false);
+  const retryTimerRef = useRef(null);
+
+  // Cleanup timer on unmount
+  useEffect(() => () => { if (retryTimerRef.current) clearInterval(retryTimerRef.current); }, []);
+
+  const isServerSleeping = (e) => {
+    const msg = (e?.message || "").toLowerCase();
+    return msg.includes("429") || msg.includes("502") || msg.includes("503") ||
+           msg.includes("504") || msg.includes("too many") ||
+           msg.includes("failed to fetch") || msg.includes("load failed") ||
+           msg.includes("networkerror") || msg.includes("network request failed") ||
+           msg.includes("timeout") || msg.includes("timed out");
+  };
+
+  const doLogin = async () => {
+    const res = await api.login(form.email, form.password);
+    const claims = parseJwt(res.token);
+    let userProfile = null;
+    try { userProfile = await api.getUser(res.token); } catch (_) {}
+    const user = {
+      id: userProfile?.id || claims?.userId || 1,
+      name: userProfile?.name || claims?.name || form.email.split("@")[0],
+      email: userProfile?.email || form.email,
+      role: claims?.role || "ROLE_USER",
+    };
+    onLogin(res.token, user);
+  };
+
+  const attemptSubmit = async () => {
+    if (mode === "login") {
+      await doLogin();
+    } else {
+      if (!form.name || !form.email || !form.password) {
+        throw new Error("Please fill all required fields.");
+      }
+      await api.register(form);
+      try { await doLogin(); }
+      catch (e) { throw new Error("Registered! Please sign in."); }
+    }
+  };
 
   const submit = async () => {
-    setErr(""); setLoading(true);
+    if (loading || countdown > 0) return;
+    setErr(""); setRetrying(false); setLoading(true);
     try {
-      if (mode === "login") {
-        let res;
-        try { res = await api.login(form.email, form.password); }
-        catch (e) { setErr(e.message || "Login failed. Check your credentials."); return; }
-        // Fetch real user profile from API for accurate name/email
-        const claims = parseJwt(res.token);
-        let userProfile = null;
-        try {
-          userProfile = await api.getUser(res.token);
-        } catch (_) {}
-        const user = {
-          id: userProfile?.id || claims?.userId || 1,
-          name: userProfile?.name || claims?.name || form.email.split("@")[0],
-          email: userProfile?.email || form.email,
-          role: claims?.role || "ROLE_USER",
-        };
-        onLogin(res.token, user);
+      await attemptSubmit();
+    } catch (e) {
+      if (isServerSleeping(e)) {
+        // Cloudflare/Render rate-limits rapid requests to sleeping services.
+        // Wait 65 seconds (Cloudflare rate-limit window) then retry ONCE automatically.
+        setRetrying(true);
+        setCountdown(65);
+        setLoading(false);
+        retryTimerRef.current = setInterval(() => {
+          setCountdown(s => {
+            if (s <= 1) {
+              clearInterval(retryTimerRef.current);
+              setRetrying(false);
+              setCountdown(0);
+              // Auto-retry once after cooldown
+              setLoading(true);
+              attemptSubmit()
+                .then(() => {}) // success handled by onLogin
+                .catch(e2 => {
+                  if (isServerSleeping(e2)) {
+                    setErr("Server is still waking up. Please wait 1 minute and try again.");
+                  } else {
+                    setErr(e2.message || "Something went wrong.");
+                    if (e2.message === "Registered! Please sign in.") setMode("login");
+                  }
+                  setLoading(false);
+                });
+              return 0;
+            }
+            return s - 1;
+          });
+        }, 1000);
       } else {
-        if (!form.name || !form.email || !form.password) { setErr("Please fill all required fields."); return; }
-        try { await api.register(form); }
-        catch (e) { setErr(e.message || "Registration failed. Try a different email."); return; }
-        // After register, auto-login
-        let res;
-        try { res = await api.login(form.email, form.password); }
-        catch (e) { setErr("Registered! Please sign in."); setMode("login"); return; }
-        const claims = parseJwt(res.token);
-        let userProfile = null;
-        try { userProfile = await api.getUser(res.token); } catch (_) {}
-        const user = {
-          id: userProfile?.id || claims?.userId || 1,
-          name: userProfile?.name || form.name,
-          email: userProfile?.email || form.email,
-          role: claims?.role || "ROLE_USER",
-        };
-        onLogin(res.token, user);
+        setErr(e.message || "Something went wrong. Please try again.");
+        if (e.message === "Registered! Please sign in.") setMode("login");
+        setLoading(false);
       }
-    } finally { setLoading(false); }
+    }
   };
+
   const fld = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
+  const pct = Math.min(((65 - countdown) / 65) * 100, 99);
 
   return (
     <div style={{ alignItems: "center", display: "flex", justifyContent: "center", minHeight: "100vh", padding: "20px", position: "relative", overflow: "hidden" }}>
@@ -725,9 +778,10 @@ function Auth({ onLogin, onBack }) {
         <button onClick={onBack} style={{ alignItems: "center", background: "none", border: "none", color: "var(--text3)", cursor: "pointer", display: "flex", fontSize: "13px", gap: "6px", marginBottom: "22px" }}>← Back to home</button>
         <div style={{ textAlign: "center", marginBottom: "28px" }}><Logo sz={30} /><p style={{ color: "var(--text3)", fontSize: "13px", marginTop: "7px" }}>Next-generation digital payments</p></div>
         <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid var(--border)", borderRadius: "18px", padding: "24px 20px" }}>
+
           <div style={{ display: "flex", background: "rgba(255,255,255,0.04)", borderRadius: "10px", padding: "4px", marginBottom: "20px" }}>
             {["login", "register"].map(m => (
-              <button key={m} onClick={() => { setMode(m); setErr(""); }} style={{ flex: 1, background: mode === m ? "rgba(108,99,255,0.15)" : "transparent", border: `1px solid ${mode === m ? "rgba(108,99,255,0.3)" : "transparent"}`, borderRadius: "8px", color: mode === m ? "var(--accent)" : "var(--text3)", fontSize: "14px", fontWeight: mode === m ? 700 : 400, padding: "9px" }}>
+              <button key={m} onClick={() => { setMode(m); setErr(""); setWarming(false); }} style={{ flex: 1, background: mode === m ? "rgba(108,99,255,0.15)" : "transparent", border: `1px solid ${mode === m ? "rgba(108,99,255,0.3)" : "transparent"}`, borderRadius: "8px", color: mode === m ? "var(--accent)" : "var(--text3)", fontSize: "14px", fontWeight: mode === m ? 700 : 400, padding: "9px" }}>
                 {m === "login" ? "Sign In" : "Register"}
               </button>
             ))}
@@ -743,11 +797,34 @@ function Auth({ onLogin, onBack }) {
                 <button onClick={() => setShowPass(p => !p)} style={{ background: "none", border: "none", color: "var(--text3)", position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)" }}><Ico n={showPass ? "eye2" : "eye"} s={16} /></button>
               </div>
             </div>
-            {err && <p style={{ color: "var(--red)", fontSize: "13px", background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.15)", borderRadius: "8px", padding: "10px 14px" }}>{err}</p>}
-            <button className="btn-p" onClick={submit} disabled={loading} style={{ marginTop: "4px", width: "100%", padding: "14px", fontSize: "15px" }}>
-              {loading ? <Spin s={17} /> : mode === "login" ? "Sign In" : "Create Account"}
+
+            {retrying && (
+              <div style={{ background: "rgba(108,99,255,0.08)", border: "1px solid rgba(108,99,255,0.3)", borderRadius: "12px", padding: "14px 16px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+                  <Spin s={14} />
+                  <strong style={{ color: "var(--accent)", fontSize: "13px" }}>Server is waking up — please wait...</strong>
+                </div>
+                <p style={{ color: "var(--text2)", fontSize: "12px", lineHeight: 1.6, marginBottom: "10px" }}>
+                  The server was rate-limited. Retrying automatically in <strong style={{ color: "var(--accent)" }}>{countdown}s</strong>.
+                  <br/>Do <strong style={{ color: "var(--red)" }}>NOT</strong> click again — the retry is automatic.
+                </p>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "5px" }}>
+                  <span style={{ color: "var(--text3)", fontSize: "11px" }}>Auto-retrying in {countdown}s...</span>
+                  <span style={{ color: "var(--accent)", fontSize: "11px", fontWeight: 700 }}>{Math.round(pct)}%</span>
+                </div>
+                <div style={{ height: "4px", background: "rgba(255,255,255,0.07)", borderRadius: "100px", overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${pct}%`, background: "linear-gradient(90deg,var(--accent),var(--accent3))", borderRadius: "100px", transition: "width 1s linear" }} />
+                </div>
+              </div>
+            )}
+
+            {err && (
+              <p style={{ color: "var(--red)", fontSize: "13px", background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.15)", borderRadius: "8px", padding: "10px 14px" }}>{err}</p>
+            )}
+
+            <button className="btn-p" onClick={submit} disabled={loading || countdown > 0} style={{ marginTop: "4px", width: "100%", padding: "14px", fontSize: "15px", opacity: countdown > 0 ? 0.6 : 1 }}>
+              {loading ? <Spin s={17} /> : countdown > 0 ? `Retrying in ${countdown}s...` : mode === "login" ? "Sign In" : "Create Account"}
             </button>
-            <p style={{ color: "var(--text3)", fontSize: "12px", textAlign: "center" }}>Demo mode: any credentials work offline</p>
           </div>
         </div>
       </div>
